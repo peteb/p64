@@ -150,17 +150,17 @@ int main() {
   return 0;
 }
 
-void run_machine(cpu_state_t* cpu) {
+void run_machine(cpu_state_t *cpu) {
   uint8_t opcode;
   while ((opcode = cpu->mem[cpu->pc])) {
-    opc_descr_t* op_handler = &opcodes[opcode];
+    opc_descr_t *op_handler = &opcodes[opcode];
     printf("exec %s (%x)\n", op_handler->name, opcode);
     assert(op_handler && "no handler for opcode type");
     op_handler->cfun(cpu, op_handler->addr_m);
   }
 }
 
-uint16_t adr_fetch(uint8_t mode, cpu_state_t* cpu) {
+uint16_t adr_fetch(uint8_t mode, cpu_state_t *cpu) {
   /* pc should be after tehfocalpoin instruction */
 
   uint16_t base = 0;
@@ -197,8 +197,8 @@ uint16_t adr_fetch(uint8_t mode, cpu_state_t* cpu) {
   }
 }
 
-void op_ld(cpu_state_t* cpu, uint8_t mode) {
-  uint8_t* reg = NULL;
+void op_ld(cpu_state_t *cpu, uint8_t mode) {
+  uint8_t *reg = NULL;
   uint8_t code = cpu->mem[cpu->pc++];
 
   switch (code) {
@@ -234,7 +234,7 @@ void op_ld(cpu_state_t* cpu, uint8_t mode) {
              cpu->ps & ~PS_Z);
 }
 
-void op_adc(cpu_state_t* cpu, uint8_t mode) {
+void op_adc(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++; 
   uint16_t result = cpu->a + cpu->mem[cpu->pc++];
   cpu->a = (uint8_t)(result & 0xFF);
@@ -251,7 +251,7 @@ void op_adc(cpu_state_t* cpu, uint8_t mode) {
     cpu->ps &= ~PS_Z;
 }
 
-void op_st(cpu_state_t* cpu, uint8_t mode) {
+void op_st(cpu_state_t *cpu, uint8_t mode) {
   uint8_t code = cpu->mem[cpu->pc++];
   uint16_t adr = adr_fetch(mode, cpu);
 
