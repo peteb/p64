@@ -25,6 +25,16 @@
 
 #define MEM_MAX 0x4000
 
+#define PUSH8(cpu, val)  (cpu)->mem[0x100 + ((cpu)->sp--)] = (val)
+#define PUSH16(cpu, val) (cpu)->mem[0x100 + (cpu)->sp] = (val) & 0xFF;    \
+                              (cpu)->mem[0x0FF + (cpu)->sp] = (val) >> 8; \
+                              (cpu)->sp -= 2
+#define POP8(cpu)        (cpu)->mem[0x100 + (++(cpu)->sp)]
+#define POP16(cpu)       (cpu)->mem[0x101 + (cpu)->sp] << 8 |             \
+                              (cpu)->mem[0x102 + (cpu)->sp];              \
+                              (cpu)->sp += 2
+
+
 typedef struct cpu_state {
   uint8_t a, x, y, ps, sp;
   uint16_t pc;
@@ -307,7 +317,7 @@ void op_push(cpu_state_t *cpu, uint8_t mode) {
   default: assert(!"invalid opcode");
   }
 
-  cpu->mem[0x100 + (cpu->sp--)] = *source;
+  PUSH8(cpu, *source);
 }
 
 void op_pull(cpu_state_t *cpu, uint8_t mode) {
@@ -319,7 +329,7 @@ void op_pull(cpu_state_t *cpu, uint8_t mode) {
   default: assert(!"invalid opcode");
   }
 
-  *dest = cpu->mem[0x100 + (++cpu->sp)];
+  *dest = POP8(cpu);
   if (code == 0x68) {
     if (*dest & 0x80)
       cpu->ps |= PS_N;
@@ -371,8 +381,7 @@ void op_jmp(cpu_state_t *cpu, uint8_t mode) {
 }
 
 void op_rts(cpu_state_t *cpu, uint8_t mode) {
-  uint16_t retadr = (uint16_t)cpu->mem[0x100 + (++cpu->sp)] << 8;
-  retadr |= cpu->mem[0x100 + (++cpu->sp)];
+  uint16_t retadr = POP16(cpu); 
   cpu->pc = retadr + 1;
 }
 
@@ -380,13 +389,12 @@ void op_jsr(cpu_state_t *cpu, uint8_t mode) {
   uint16_t pc = cpu->pc + 2;
   cpu->pc++;
   uint16_t toadr = adr_fetch(mode, cpu);
-  cpu->mem[0x100 + (cpu->sp--)] = pc & 0xFF;
-  cpu->mem[0x100 + (cpu->sp--)] = pc >> 8;
+  PUSH16(cpu, pc);
   cpu->pc = toadr;
 }
 
 
-void print_state(cpu_state_t* state) {
+void print_state(cpu_state_t *state) {
   uint8_t ps = state->ps;
 
   printf("a=%02X x=%02X y=%02X sp=%02X pc=%04X ps=%c%c-%c%c%c%c%c (%02X)\n",
@@ -455,6 +463,6 @@ void print_instr(cpu_state_t *cpu, uint16_t len) {
   }
 }
 
-void print_mem(cpu_state_t* cpu) {
+void print_mem(cpu_state_t *cpu) {
 
 }
