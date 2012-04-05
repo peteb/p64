@@ -5,16 +5,6 @@
 
 #include "6502.h"
 
-
-
-typedef void (*opcode_fun_t)(cpu_state_t *, uint8_t);
-
-typedef struct opc_descr_t {
-  uint8_t addr_m;
-  opcode_fun_t cfun;
-  const char *name;
-} opc_descr_t;
-
 static void op_ld(cpu_state_t *, uint8_t);
 static void op_adc(cpu_state_t *, uint8_t);
 static void op_tog_i(cpu_state_t *, uint8_t);
@@ -579,48 +569,6 @@ void print_state(cpu_state_t *state) {
   }
 }
 
-void print_instr(cpu_state_t *cpu, uint16_t len) {
-  /* prints the instructions at pc, up to len bytes */
-  uint16_t end = cpu->pc + len;
-  uint16_t pc = cpu->pc;
-  
-  while (pc < end) {
-    uint16_t instr_pc = pc;
-    uint8_t code = cpu->mem[pc++];
-    opc_descr_t *opcode = &opcodes[code];
-    char instr[64] = {0};
-    char data[64] = {0};
-    size_t num_bytes = 1;
-
-    sprintf(data, ".%04X  ", instr_pc);
-
-    if (opcode->cfun) {
-      uint16_t val;
-      uint8_t hi;
-
-      switch (opcode->addr_m) {
-      case ADR_IMM:
-        val = cpu->mem[pc++];
-        num_bytes = 2;
-        sprintf(instr, "%s #$%02X", opcode->name, val);
-        break;
-
-      case ADR_ABS:
-        num_bytes = 3;
-        hi = cpu->mem[pc++];
-        val = (uint16_t)hi << 8 | cpu->mem[pc++];
-        sprintf(instr, "%s $%04X", opcode->name, val);
-        break;
-
-      default:
-        strcpy(instr, opcode->name);
-      }
-    }
-
-    while (num_bytes--) {
-      sprintf(data + strlen(data), "%02X ", cpu->mem[instr_pc++]);
-    }
-
-    printf("%-16s %s\n", data, instr);
-  }
+opc_descr_t *instr_descr(uint8_t opc) {
+  return &opcodes[opc];
 }

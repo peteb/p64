@@ -42,8 +42,17 @@ typedef struct cpu_state {
   uint8_t mem[MEM_MAX];
 } cpu_state_t;
 
-void print_instr(cpu_state_t *, uint16_t);
+typedef void (*opcode_fun_t)(cpu_state_t *, uint8_t);
+
+typedef struct opc_descr_t {
+  uint8_t addr_m;
+  opcode_fun_t cfun;
+  const char *name;
+} opc_descr_t;
+
+void print_instr(uint8_t *, uint16_t len, uint16_t start_ofs);
 void print_state(cpu_state_t *);
 void run_machine(cpu_state_t *);
+opc_descr_t *instr_descr(uint8_t opc);
 
-#endif // !P64_6502_H
+#endif /* !P64_6502_H */

@@ -1,4 +1,5 @@
 #include "6502.h"
+#include "asm.h"
 
 int main() {
   static cpu_state_t cpu = {
@@ -15,7 +16,7 @@ int main() {
   print_state(&cpu);
 
   cpu.pc = 0;
-  print_instr(&cpu, 40);
+  print_instr(cpu.mem, 40, 0x0);
   return 0;
 }
 
