@@ -22,16 +22,17 @@
 #define ADR_IZX   8 /* indexed indirect, X */
 #define ADR_IZY   9 /* indexed indirect, Y */
 #define ADR_IND   10
+#define ADR_REL   11
 
 #define MEM_MAX 0x4000
 
-#define PUSH8(cpu, val)  (cpu)->mem[0x100 + ((cpu)->sp--)] = (val)
-#define PUSH16(cpu, val) (cpu)->mem[0x100 + (cpu)->sp] = (val) & 0xFF;    \
+#define PUSH8(cpu, val)  (cpu)->mem[0x100 + (cpu)->sp--] = (val)
+#define PUSH16(cpu, val) (cpu)->mem[0x100 + (cpu)->sp] = (val) & 0xFF;  \
                               (cpu)->mem[0x0FF + (cpu)->sp] = (val) >> 8; \
                               (cpu)->sp -= 2
-#define POP8(cpu)        (cpu)->mem[0x100 + (++(cpu)->sp)]
-#define POP16(cpu)       (cpu)->mem[0x101 + (cpu)->sp] << 8 |             \
-                              (cpu)->mem[0x102 + (cpu)->sp];              \
+#define POP8(cpu)        (cpu)->mem[0x100 + ++(cpu)->sp]
+#define POP16(cpu)       (cpu)->mem[0x101 + (cpu)->sp] << 8 |   \
+                              (cpu)->mem[0x102 + (cpu)->sp];    \
                               (cpu)->sp += 2
 
 
@@ -68,6 +69,14 @@ void op_pull(cpu_state_t *, uint8_t);
 void op_jmp(cpu_state_t *, uint8_t);
 void op_rts(cpu_state_t *, uint8_t);
 void op_jsr(cpu_state_t *, uint8_t);
+void op_ora(cpu_state_t *, uint8_t);
+void op_and(cpu_state_t *, uint8_t);
+void op_eor(cpu_state_t *, uint8_t);
+void op_sbc(cpu_state_t *, uint8_t);
+void op_cmp(cpu_state_t *, uint8_t);
+void op_dec(cpu_state_t *, uint8_t);
+void op_inc(cpu_state_t *, uint8_t);
+void op_br(cpu_state_t *, uint8_t);
 
 void run_machine(cpu_state_t *);
 
@@ -79,20 +88,20 @@ static opc_descr_t opcodes[256] = {
   [0x78] = {ADR_IMP, op_tog_i, "sei"},
   [0xD8] = {ADR_IMP, op_tog_d, "cld"},
   [0xF8] = {ADR_IMP, op_tog_d, "sed"},
-  [0xB8] = {ADR_IMP, op_clv, "clv"},
-  [0xEA] = {ADR_IMP, op_nop, "nop"},
-  [0x60] = {ADR_IMP, op_rts, "rts"},
-  [0x4C] = {ADR_ABS, op_jmp, "jmp"},
-  [0x6C] = {ADR_IND, op_jmp, "jmp"},
-  [0x20] = {ADR_ABS, op_jsr, "jsr"},
+  [0xB8] = {ADR_IMP, op_clv,   "clv"},
+  [0xEA] = {ADR_IMP, op_nop,   "nop"},
+  [0x60] = {ADR_IMP, op_rts,   "rts"},
+  [0x4C] = {ADR_ABS, op_jmp,   "jmp"},
+  [0x6C] = {ADR_IND, op_jmp,   "jmp"},
+  [0x20] = {ADR_ABS, op_jsr,   "jsr"},
 
   /* ld */
   [0xA9] = {ADR_IMM, op_ld, "lda"},
   [0xA2] = {ADR_IMM, op_ld, "ldx"},
   [0xA0] = {ADR_IMM, op_ld, "ldy"},
-  [0xA5] = {ADR_ZP, op_ld, "lda"},
-  [0xA6] = {ADR_ZP, op_ld, "ldx"},
-  [0xA4] = {ADR_ZP, op_ld, "ldy"},
+  [0xA5] = {ADR_ZP, op_ld,  "lda"},
+  [0xA6] = {ADR_ZP, op_ld , "ldx"},
+  [0xA4] = {ADR_ZP, op_ld,  "ldy"},
   [0xB5] = {ADR_ZPX, op_ld, "lda"},
   [0xB4] = {ADR_ZPX, op_ld, "ldy"},
   [0xB6] = {ADR_ZPY, op_ld, "ldx"},
@@ -107,9 +116,9 @@ static opc_descr_t opcodes[256] = {
   [0xBE] = {ADR_ABY, op_ld, "ldx"},
 
   /* st */
-  [0x85] = {ADR_ZP, op_st, "sta"},
-  [0x86] = {ADR_ZP, op_st, "stx"},
-  [0x84] = {ADR_ZP, op_st, "sty"},
+  [0x85] = {ADR_ZP, op_st,  "sta"},
+  [0x86] = {ADR_ZP, op_st,  "stx"},
+  [0x84] = {ADR_ZP, op_st,  "sty"},
   [0x95] = {ADR_ZPX, op_st, "sta"},
   [0x94] = {ADR_ZPX, op_st, "sty"},
   [0x96] = {ADR_ZPY, op_st, "stx"},
@@ -137,8 +146,88 @@ static opc_descr_t opcodes[256] = {
   [0x68] = {ADR_IMP, op_pull, "pla"},
   [0x28] = {ADR_IMP, op_pull, "plp"},
 
-  /* arithmetic */
-  [0x69] = {ADR_IMM, op_adc, "adc"}
+  /* logic, arithmetic */
+  [0x09] = {ADR_IMM, op_ora, "ora"},
+  [0x05] = {ADR_ZP, op_ora,  "ora"},
+  [0x15] = {ADR_ZPX, op_ora, "ora"},
+  [0x01] = {ADR_IZX, op_ora, "ora"},
+  [0x11] = {ADR_IZY, op_ora, "ora"},
+  [0x0D] = {ADR_ABS, op_ora, "ora"},
+  [0x1D] = {ADR_ABX, op_ora, "ora"},
+  [0x19] = {ADR_ABY, op_ora, "ora"},
+
+  [0x29] = {ADR_IMM, op_and, "and"},
+  [0x25] = {ADR_ZP, op_and,  "and"},
+  [0x35] = {ADR_ZPX, op_and, "and"},
+  [0x21] = {ADR_IZX, op_and, "and"},
+  [0x31] = {ADR_IZY, op_and, "and"},
+  [0x2D] = {ADR_ABS, op_and, "and"},
+  [0x3D] = {ADR_ABX, op_and, "and"},
+  [0x39] = {ADR_ABY, op_and, "and"},
+
+  [0x49] = {ADR_IMM, op_eor, "eor"},
+  [0x45] = {ADR_ZP, op_eor,  "eor"},
+  [0x55] = {ADR_ZPX, op_eor, "eor"},
+  [0x41] = {ADR_IZX, op_eor, "eor"},
+  [0x51] = {ADR_IZY, op_eor, "eor"},
+  [0x4D] = {ADR_ABS, op_eor, "eor"},
+  [0x5D] = {ADR_ABX, op_eor, "eor"},
+  [0x59] = {ADR_ABY, op_eor, "eor"},
+
+  [0x69] = {ADR_IMM, op_adc, "adc"},
+  [0x65] = {ADR_ZP, op_adc,  "adc"},
+  [0x75] = {ADR_ZPX, op_adc, "adc"},
+  [0x61] = {ADR_IZX, op_adc, "adc"},
+  [0x71] = {ADR_IZY, op_adc, "adc"},
+  [0x6D] = {ADR_ABS, op_adc, "adc"},
+  [0x7D] = {ADR_ABX, op_adc, "adc"},
+  [0x79] = {ADR_ABY, op_adc, "adc"},
+
+  [0xE9] = {ADR_IMM, op_sbc, "sbc"},
+  [0xE5] = {ADR_ZP, op_sbc,  "sbc"},
+  [0xF5] = {ADR_ZPX, op_sbc, "sbc"},
+  [0xE1] = {ADR_IZX, op_sbc, "sbc"},
+  [0xF1] = {ADR_IZY, op_sbc, "sbc"},
+  [0xED] = {ADR_ABS, op_sbc, "sbc"},
+  [0xFD] = {ADR_ABX, op_sbc, "sbc"},
+  [0xF9] = {ADR_ABY, op_sbc, "sbc"},
+
+  [0xC9] = {ADR_IMM, op_cmp, "cmp"},
+  [0xC5] = {ADR_ZP, op_cmp,  "cmp"},
+  [0xD5] = {ADR_ZPX, op_cmp, "cmp"},
+  [0xC1] = {ADR_IZX, op_cmp, "cmp"},
+  [0xD1] = {ADR_IZY, op_cmp, "cmp"},
+  [0xCD] = {ADR_ABS, op_cmp, "cmp"},
+  [0xDD] = {ADR_ABX, op_cmp, "cmp"},
+  [0xD9] = {ADR_ABY, op_cmp, "cmp"},
+
+
+
+
+
+
+  [0xC6] = {ADR_ZP, op_dec, "dec"},
+  [0xD6] = {ADR_ZPX, op_dec, "dec"},
+  [0xCE] = {ADR_ABS, op_dec, "dec"},
+  [0xDE] = {ADR_ABX, op_dec, "dec"},
+  [0xCA] = {ADR_IMP, op_dec, "dex"},
+  [0x88] = {ADR_IMP, op_dec, "dey"},
+
+  [0xE6] = {ADR_ZP, op_inc, "inc"},
+  [0xF6] = {ADR_ZPX, op_inc, "inc"},
+  [0xEE] = {ADR_ABS, op_inc, "inc"},
+  [0xFE] = {ADR_ABX, op_inc, "inc"},
+  [0xE8] = {ADR_IMP, op_inc, "inx"},
+  [0xC8] = {ADR_IMP, op_inc, "iny"},
+
+  [0x10] = {ADR_REL, op_br, "bpl"},
+  [0x30] = {ADR_REL, op_br, "bmi"},
+  [0x50] = {ADR_REL, op_br, "bvc"},
+  [0x70] = {ADR_REL, op_br, "bvs"},
+  [0x90] = {ADR_REL, op_br, "bcc"},
+  [0xB0] = {ADR_REL, op_br, "bcs"},
+  [0xD0] = {ADR_REL, op_br, "bne"},
+  [0xF0] = {ADR_REL, op_br, "beq"}
 };
 
 int main() {
@@ -149,7 +238,7 @@ int main() {
     .mem = {0xA9, 0xFA, 0x69, 0x06, 0x08, 0x18, 0x28, 0xBA,  /* 8 */
             0x8E, 0x13, 0x37, 0xEA, 0xEA, 0x20, 0x00, 0x18,  /* 16 */
             0xEA, 0xEA, 0xEA, 0xEA,    0,    0,    0,    0,     /* 24 */
-            0x18, 0x60,    0,    0,    0}
+            0x18, 0xA9, 0x02, 0x09, 0x08, 0x60,    0,    0,    0}
   };
 
   run_machine(&cpu);
@@ -202,6 +291,10 @@ uint16_t adr_fetch(uint8_t mode, cpu_state_t *cpu) {
 
     return base;
 
+  case ADR_REL:
+    base = cpu->pc - 2 + (int16_t)cpu->mem[cpu->pc++];
+    return base;
+
   case ADR_IZX: assert(!"to be fixed");
   default: assert(!"invalid addressing mode");
   }
@@ -245,8 +338,9 @@ void op_ld(cpu_state_t *cpu, uint8_t mode) {
 }
 
 void op_adc(cpu_state_t *cpu, uint8_t mode) {
-  cpu->pc++; 
-  uint16_t result = cpu->a + cpu->mem[cpu->pc++];
+  cpu->pc++;
+  uint16_t adr = adr_fetch(mode, cpu);
+  uint16_t result = cpu->a + cpu->mem[adr];
   cpu->a = (uint8_t)(result & 0xFF);
 
   if (result > 0xFF)
@@ -345,7 +439,7 @@ void op_tog_i(cpu_state_t *cpu, uint8_t mode) {
   case 0x58: cpu->ps &= ~PS_I; break; /* CLI */
   case 0x78: cpu->ps |= PS_I; break; /* SEI */
   default: assert(!"invalid opcode");
-  }    
+  }
 }
 
 void op_tog_d(cpu_state_t *cpu, uint8_t mode) {
@@ -377,11 +471,11 @@ void op_nop(cpu_state_t *cpu, uint8_t mode) {
 
 void op_jmp(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
-  cpu->pc = cpu->mem[adr_fetch(mode, cpu)];  
+  cpu->pc = cpu->mem[adr_fetch(mode, cpu)];
 }
 
 void op_rts(cpu_state_t *cpu, uint8_t mode) {
-  uint16_t retadr = POP16(cpu); 
+  uint16_t retadr = POP16(cpu);
   cpu->pc = retadr + 1;
 }
 
@@ -393,6 +487,130 @@ void op_jsr(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc = toadr;
 }
 
+void op_ora(cpu_state_t *cpu, uint8_t mode) {
+  cpu->pc++;
+  uint16_t adr = adr_fetch(mode, cpu);
+  cpu->a |= cpu->mem[adr];
+
+  if (cpu->a & 0x80)
+    cpu->ps |= PS_N;
+
+  cpu->ps = (cpu->a == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_and(cpu_state_t *cpu, uint8_t mode) {
+  cpu->pc++;
+  uint16_t adr = adr_fetch(mode, cpu);
+  cpu->a &= cpu->mem[adr];
+
+  if (cpu->a & 0x80)
+    cpu->ps |= PS_N;
+
+  cpu->ps = (cpu->a == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_eor(cpu_state_t *cpu, uint8_t mode) {
+  cpu->pc++;
+  uint16_t adr = adr_fetch(mode, cpu);
+  cpu->a ^= cpu->mem[adr];
+
+  if (cpu->a & 0x80)
+    cpu->ps |= PS_N;
+
+  cpu->ps = (cpu->a == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_sbc(cpu_state_t *cpu, uint8_t mode) {
+  cpu->pc++;
+  uint16_t adr = adr_fetch(mode, cpu);
+  /* TODO: fix borrow, carry flag */
+  cpu->a -= cpu->mem[adr];
+
+  if (cpu->a & 0x80)
+    cpu->ps |= PS_N;
+
+  /* TODO: fix proper flag setting */
+  cpu->ps = (cpu->a == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_cmp(cpu_state_t *cpu, uint8_t mode) {
+  cpu->pc++;
+  uint16_t adr = adr_fetch(mode, cpu);
+  /* TODO: fix borrow, carry flag */
+  uint8_t res = cpu->a - cpu->mem[adr];
+
+  if (res & 0x80)
+    cpu->ps |= PS_N;
+
+  /* TODO: fix setting of carry */
+  cpu->ps = (res == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_dec(cpu_state_t *cpu, uint8_t mode) {
+  uint8_t code = cpu->mem[cpu->pc++];
+  uint8_t res;
+
+  switch (code) {
+  case 0xCA: res = --cpu->x; break;
+  case 0x88: res = --cpu->y; break;
+  default: res = --cpu->mem[adr_fetch(mode, cpu)];
+  }
+
+  if (res & 0x80)
+    cpu->ps |= PS_N;
+
+  cpu->ps = (res == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_inc(cpu_state_t *cpu, uint8_t mode) {
+  uint8_t code = cpu->mem[cpu->pc++];
+  uint8_t res;
+
+  switch (code) {
+  case 0xE8: res = ++cpu->x; break;
+  case 0xC8: res = ++cpu->y; break;
+  default: res = ++cpu->mem[adr_fetch(mode, cpu)];
+  }
+
+  if (res & 0x80)
+    cpu->ps |= PS_N;
+
+  cpu->ps = (res == 0 ?
+             cpu->ps | PS_Z :
+             cpu->ps & ~PS_Z);
+}
+
+void op_br(cpu_state_t *cpu, uint8_t mode) {
+  uint8_t code = cpu->mem[cpu->pc++];
+  int exec_br = 0;
+
+  switch (code) {
+  case 0x10: exec_br = ~cpu->ps & PS_N; break; /* bpl */
+  case 0x30: exec_br = cpu->ps & PS_N; break; /* bmi */
+  case 0x50: exec_br = ~cpu->ps & PS_V; break; /* bvc */
+  case 0x70: exec_br = cpu->ps & PS_V; break; /* bvs */
+  case 0x90: exec_br = ~cpu->ps & PS_C; break; /* bcc */
+  case 0xB0: exec_br = cpu->ps & PS_C; break; /* bcs */
+  case 0xD0: exec_br = ~cpu->ps & PS_Z; break; /* bne */
+  case 0xF0: exec_br = cpu->ps & PS_Z; break; /* beq */
+  default: assert(!"invalid opcode");
+  }
+
+  if (exec_br)
+    cpu->pc = adr_fetch(mode, cpu);
+}
 
 void print_state(cpu_state_t *state) {
   uint8_t ps = state->ps;
@@ -406,7 +624,7 @@ void print_state(cpu_state_t *state) {
          (ps & PS_I) ? 'I' : 'x',
          (ps & PS_Z) ? 'Z' : 'x',
          (ps & PS_C) ? 'C' : 'x',
-         ps         
+         ps
          );
 
   size_t i;
@@ -452,7 +670,7 @@ void print_instr(cpu_state_t *cpu, uint16_t len) {
 
       default:
         strcpy(instr, opcode->name);
-      }        
+      }
     }
 
     while (num_bytes--) {
