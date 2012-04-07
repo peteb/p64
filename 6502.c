@@ -31,7 +31,7 @@ static void op_br(cpu_state_t *, uint8_t);
 static uint16_t adr_fetch(uint8_t mode, cpu_state_t *cpu);
 
 
-static opc_descr_t opcodes[256] = {
+static opc_descr_t opcodes[0xFF] = {
   /* jump/flag */
   [0x18] = {ADR_IMP, op_tog_c, "clc"},
   [0x38] = {ADR_IMP, op_tog_c, "sec"},

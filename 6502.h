@@ -12,19 +12,19 @@
 #define PS_N 0x80 /* negative */
 
 #define ADR_IMP   0
-#define ADR_IMM   1 /* immediate */
-#define ADR_ABS   2 /* absolute */
-#define ADR_ABX   3 /* absolute, X */
-#define ADR_ABY   4 /* absolute, Y */
-#define ADR_ZP    5 /* zeropage */
-#define ADR_ZPX   6 /* zeropage, X */
-#define ADR_ZPY   7 /* zeropage, Y */
-#define ADR_IZX   8 /* indexed indirect, X */
-#define ADR_IZY   9 /* indexed indirect, Y */
-#define ADR_IND   10
-#define ADR_REL   11
+#define ADR_IMM   1  /* immediate */
+#define ADR_ABS   2  /* absolute */
+#define ADR_ABX   3  /* absolute, X */
+#define ADR_ABY   4  /* absolute, Y */
+#define ADR_ZP    5  /* zeropage */
+#define ADR_ZPX   6  /* zeropage, X */
+#define ADR_ZPY   7  /* zeropage, Y */
+#define ADR_IZX   8  /* indexed indirect, X */
+#define ADR_IZY   9  /* indexed indirect, Y */
+#define ADR_IND  10  /* absolute indirect */
+#define ADR_REL  11  /* relative to pc */
 
-#define MEM_MAX 0x4000
+#define MEM_MAX 0xFFFF
 
 #define PUSH8(cpu, val)  (cpu)->mem[0x100 + (cpu)->sp--] = (val)
 #define PUSH16(cpu, val) (cpu)->mem[0x100 + (cpu)->sp] = (val) & 0xFF;  \

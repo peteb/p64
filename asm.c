@@ -15,7 +15,8 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
     char instr[64] = {0};
     char data[64] = {0};
     size_t num_bytes = 1;
-
+    const char *extra = "";
+    
     sprintf(data, ".%04X  ", instr_pc + start_ofs);
 
     if (opcode->cfun) {
@@ -29,13 +30,35 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
         sprintf(instr, "%s #$%02X", opcode->name, val);
         break;
 
+      case ADR_ABX:   extra = ",X";
+      case ADR_ABY:   if (*extra == '\0') extra = ",Y";
       case ADR_ABS:
         num_bytes = 3;
         hi = mem[pc++];
         val = (uint16_t)hi << 8 | mem[pc++];
-        sprintf(instr, "%s $%04X", opcode->name, val);
+        sprintf(instr, "%s $%04X%s", opcode->name, val, extra);
         break;
 
+      case ADR_ZPX:   extra = ",X";
+      case ADR_ZPY:   if (*extra == '\0') extra = ",Y";
+      case ADR_ZP:
+        val = mem[pc++];
+        num_bytes = 2;
+        sprintf(instr, "%s $%02X%s", opcode->name, val, extra);
+        break;
+
+      case ADR_IZX:
+        val = mem[pc++];
+        num_bytes = 2;
+        sprintf(instr, "%s ($%02X, X)", opcode->name, val);
+        break;
+
+      case ADR_IZY:
+        val = mem[pc++];
+        num_bytes = 2;
+        sprintf(instr, "%s ($%02X), Y", opcode->name, val);
+        break;
+        
       default:
         strcpy(instr, opcode->name);
       }
