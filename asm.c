@@ -58,6 +58,21 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
         num_bytes = 2;
         sprintf(instr, "%s ($%02X), Y", opcode->name, val);
         break;
+
+      case ADR_IND:
+        num_bytes = 3;
+        hi = mem[pc++];
+        val = (uint16_t)hi << 8 | mem[pc++];
+        sprintf(instr, "%s ($%04X)", opcode->name, val);
+        break;
+
+      case ADR_REL:
+        num_bytes = 3;
+        hi = mem[pc++];
+        val = (uint16_t)hi << 8 | mem[pc++];
+        sprintf(instr, "%s $%04X,PC", opcode->name, val);
+        break;
+
         
       default:
         strcpy(instr, opcode->name);
