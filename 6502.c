@@ -479,13 +479,15 @@ void op_sbc(cpu_state_t *cpu, uint8_t mode) {
 void op_cmp(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
-  /* TODO: fix borrow, carry flag */
-  uint8_t res = cpu->a - cpu->mem[adr];
-
+  int16_t res = cpu->a - cpu->mem[adr] - !(cpu->ps & PS_C);
+  
   if (res & 0x80)
     cpu->ps |= PS_N;
 
-  /* TODO: fix setting of carry */
+  cpu->ps = (res >= 0 ?
+             cpu->ps | PS_C :
+             cpu->ps & ~PS_C);
+
   cpu->ps = (res == 0 ?
              cpu->ps | PS_Z :
              cpu->ps & ~PS_Z);
