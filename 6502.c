@@ -461,13 +461,16 @@ void op_eor(cpu_state_t *cpu, uint8_t mode) {
 void op_sbc(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
-  /* TODO: fix borrow, carry flag */
-  cpu->a -= cpu->mem[adr];
-
+  int16_t res = cpu->a - cpu->mem[adr] - !(cpu->ps & PS_C);
+  cpu->a = (uint8_t)res;
+  
   if (cpu->a & 0x80)
     cpu->ps |= PS_N;
 
-  /* TODO: fix proper flag setting */
+  cpu->ps = (res >= 0 ?
+             cpu->ps | PS_C :
+             cpu->ps & ~PS_C);
+
   cpu->ps = (cpu->a == 0 ?
              cpu->ps | PS_Z :
              cpu->ps & ~PS_Z);
