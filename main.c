@@ -214,7 +214,9 @@ void parse_line(const char *grps[], size_t num_grps,
       assert(sym->num_symbols < 100);
       uint8_t flags = 0;
       char sym_name[64] = {0};
-      strncpy(sym_name, grps[0], sizeof(sym_name));
+      strncpy(sym_name, grps[0], sizeof sym_name);
+      sym_name[sizeof sym_name] = '\0';
+      
       size_t len = strlen(sym_name);
       if (sym_name[len - 1] == ':') {
         sym_name[len - 1] = '\0';
