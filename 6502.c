@@ -579,12 +579,10 @@ opc_descr_t *instr_descr(uint8_t opc) {
 }
 
 uint8_t instr_named(const char *instr, uint8_t addr_m) {
-  /* addr_m == 0xFF -> the first occurrence */
-
   size_t i;
   for (i = 0; i < 0xFF; ++i) {
     opc_descr_t *desc = &opcodes[i];
-    if (desc->name && (desc->addr_m == addr_m || addr_m == 0xFF) && strcmp(desc->name, instr) == 0)
+    if (desc->name && desc->addr_m == addr_m && strcmp(desc->name, instr) == 0)
       return i;
   }
 

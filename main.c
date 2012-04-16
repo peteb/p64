@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define SYM_GLOBAL 0x01
+#define SYM_GLOBAL         0x01
+#define ASM_NO_LINK_ERROR  0x01
 
 typedef struct sym_def {
   char *id;
@@ -13,34 +14,17 @@ typedef struct sym_def {
   uint8_t flags;
 } sym_def_t;
 
-typedef struct rel_ent {
-  char *sym;
-  uint16_t address;
-  uint8_t flags;
-} rel_ent_t;
-
-#define REL_LOBIT 0x01
-#define REL_HIBIT 0x02
-
 typedef struct symtab {
   sym_def_t symbols[100];
-  rel_ent_t reloc[100];  /* for relocations during linking */
-
-  size_t num_symbols, num_relocs;
+  size_t num_symbols;
 } symtab_t;
-
-/* TODO: remove relocations. just run the assembler again with
-   another flag for emitting errors on linking errors */
 
 void clear_symtab(struct symtab *syms) {
   size_t i;
   for (i = 0; i < syms->num_symbols; ++i)
     free(syms->symbols[i].id);
 
-  for (i = 0; i < syms->num_relocs; ++i)
-    free(syms->reloc[i].sym);
-
-  syms->num_symbols = syms->num_relocs = 0;
+  syms->num_symbols = 0;
 }
 
 sym_def_t *sym_lookup(struct symtab *syms, const char *name) {
@@ -100,14 +84,15 @@ int main() {
     "     clc                 ; clear carry\n"
     "     plp\n"
     "     tsx\n"
-    "     stx $1337\n";
+    "     stx $1337\n"
+    "     jmp main            ; loop back\n";
 
   static symtab_t object;
 
-  /* parse_asm(code, &cpu, &object); */
-  /* print_state(&cpu); */
-  /* print_instr(cpu.mem + 0x100, 40, 0x100); */
-  repl();
+  parse_asm(code, &cpu, &object);
+  print_state(&cpu);
+  print_instr(cpu.mem + 0x100, 40, 0x100);
+  /*  repl(); */
   return 0;
 }
 
