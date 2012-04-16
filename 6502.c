@@ -463,7 +463,7 @@ void op_sbc(cpu_state_t *cpu, uint8_t mode) {
   uint16_t adr = adr_fetch(mode, cpu);
   int16_t res = cpu->a - cpu->mem[adr] - !(cpu->ps & PS_C);
   cpu->a = (uint8_t)res;
-  
+
   if (cpu->a & 0x80)
     cpu->ps |= PS_N;
 
@@ -480,7 +480,7 @@ void op_cmp(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
   int16_t res = cpu->a - cpu->mem[adr] - !(cpu->ps & PS_C);
-  
+
   if (res & 0x80)
     cpu->ps |= PS_N;
 
@@ -566,7 +566,7 @@ void print_state(cpu_state_t *state) {
 
   size_t i;
   for (i = 0; i < 0x400; ) {
-    printf("%04X: ", i);
+    printf("%04ZX: ", i);
     size_t a = i + 0x20;
     for (; i < a; ++i)
       printf("%02X ", state->mem[i]);
@@ -576,4 +576,30 @@ void print_state(cpu_state_t *state) {
 
 opc_descr_t *instr_descr(uint8_t opc) {
   return &opcodes[opc];
+}
+
+uint8_t instr_named(const char *instr, uint8_t addr_m) {
+  /* addr_m == 0xFF -> the first occurrence */
+
+  size_t i;
+  for (i = 0; i < 0xFF; ++i) {
+    opc_descr_t *desc = &opcodes[i];
+    if (desc->name && (desc->addr_m == addr_m || addr_m == 0xFF) && strcmp(desc->name, instr) == 0)
+      return i;
+  }
+
+  return 0;
+}
+
+uint16_t instr_modes(const char *instr) {
+  /* if needed for speed, create a new sorted table */
+  uint16_t ret = 0;
+  size_t i;
+  for (i = 0; i < 0xFF; ++i) {
+    opc_descr_t *desc = &opcodes[i];
+    if (desc->name && strcmp(desc->name, instr) == 0)
+      ret |= (1 << desc->addr_m);
+  }
+
+  return ret;
 }

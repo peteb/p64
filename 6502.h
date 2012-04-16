@@ -13,27 +13,28 @@
 
 #define ADR_IMP   0
 #define ADR_IMM   1  /* immediate */
-#define ADR_ABS   2  /* absolute */
-#define ADR_ABX   3  /* absolute, X */
-#define ADR_ABY   4  /* absolute, Y */
-#define ADR_ZP    5  /* zeropage */
-#define ADR_ZPX   6  /* zeropage, X */
-#define ADR_ZPY   7  /* zeropage, Y */
+#define ADR_ZP    2  /* zeropage */
+#define ADR_ZPX   3  /* zeropage, X */
+#define ADR_ZPY   4  /* zeropage, Y */
+#define ADR_ABS   5  /* absolute */
+#define ADR_ABX   6  /* absolute, X */
+#define ADR_ABY   7  /* absolute, Y */
 #define ADR_IZX   8  /* indexed indirect, X */
 #define ADR_IZY   9  /* indexed indirect, Y */
 #define ADR_IND  10  /* absolute indirect */
 #define ADR_REL  11  /* relative to pc */
+#define ADR_MAX  12
 
 #define MEM_MAX 0xFFFF
 
 #define PUSH8(cpu, val)  (cpu)->mem[0x100 + (cpu)->sp--] = (val)
 #define PUSH16(cpu, val) (cpu)->mem[0x100 + (cpu)->sp] = (val) & 0xFF;  \
-                              (cpu)->mem[0x0FF + (cpu)->sp] = (val) >> 8; \
-                              (cpu)->sp -= 2
+                         (cpu)->mem[0x0FF + (cpu)->sp] = (val) >> 8;    \
+                         (cpu)->sp -= 2
 #define POP8(cpu)        (cpu)->mem[0x100 + ++(cpu)->sp]
 #define POP16(cpu)       (cpu)->mem[0x101 + (cpu)->sp] << 8 |   \
-                              (cpu)->mem[0x102 + (cpu)->sp];    \
-                              (cpu)->sp += 2
+                         (cpu)->mem[0x102 + (cpu)->sp];         \
+                         (cpu)->sp += 2
 
 
 typedef struct cpu_state {
@@ -54,5 +55,7 @@ void print_instr(uint8_t *, uint16_t len, uint16_t start_ofs);
 void print_state(cpu_state_t *);
 void run_machine(cpu_state_t *);
 opc_descr_t *instr_descr(uint8_t opc);
+uint8_t instr_named(const char *instr, uint8_t addr_m);
+uint16_t instr_modes(const char *instr);
 
 #endif /* !P64_6502_H */
