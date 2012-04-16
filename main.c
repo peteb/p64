@@ -311,13 +311,20 @@ void parse_asm(const char *text, struct cpu_state *cpu, struct symtab *sym) {
   char *val_ptr = value;
   const char *val_grps[8] = {0};
   size_t num_grps = 0;
-
+  
   while (*pos) {
     eat_while(&pos, isws);
     const char *chars_start = pos;
     eat_while(&pos, ischars);
     size_t diff = pos - chars_start;
+
     if (diff) {
+      if (val_ptr + diff >= value + sizeof value ||
+          num_grps >= sizeof val_grps / sizeof val_grps[0]) {
+        fprintf(stderr, "error: we ran out of space");
+        abort();
+      }
+
       strncpy(val_ptr, chars_start, diff);
       assert(num_grps < 8);
       val_grps[num_grps++] = val_ptr;
@@ -332,9 +339,9 @@ void parse_asm(const char *text, struct cpu_state *cpu, struct symtab *sym) {
     if (*pos == '\n') {
       parse_line(val_grps, num_grps, cpu, sym);
       num_grps = 0;
+      val_ptr = value;
     }
 
 
-    ++pos;
   }
 }
