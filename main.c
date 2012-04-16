@@ -78,6 +78,7 @@ int main() {
   static const char code[] =
     "org $100\n"
     "     php\n"
+    "     jmp main\n"
     "main lda #$FA            ; start of the stuff\n"
     "     adc #$06\n"
     "     php\n"
@@ -124,7 +125,8 @@ void eat_while(const char **p, int (*pred)(char)) {
   *p = pos;
 }
 
-int parse_value(const char *text, uint8_t mode, uint16_t *res) {
+int parse_value(const char *text, uint8_t mode,
+                uint16_t *res, struct symtab *symbols) {
   long val;
   char *end = 0;
 
@@ -134,8 +136,26 @@ int parse_value(const char *text, uint8_t mode, uint16_t *res) {
       val = strtol(text + 1, &end, 16);
     else
       val = strtol(text, &end, 10);
-    if (end == text)
-      return 0;
+
+    if (end == text) {
+      /* maybe it's a label, let's try it */
+      while (*end) {
+        if (!isalpha(*end))
+          return 0;
+        end++;
+      }
+      /* note: we've ruined 'end' here */
+      
+      sym_def_t *symbol = sym_lookup(symbols, text);
+      if (!symbol) {
+        fprintf(stderr,
+                "error: symbol '%s' not defined\n", text);
+        return 0;
+      }
+      *res = symbol->address;
+      return 1;
+    }
+    
     *res = val;
     return 2;
 
@@ -152,6 +172,8 @@ int parse_value(const char *text, uint8_t mode, uint16_t *res) {
     *res = val;
     return 1;
 
+    /* TODO: the rest of the modes */
+    
   }
 
   return 0;
@@ -178,7 +200,7 @@ void parse_line(const char *grps[], size_t num_grps,
     if (strcmp(grps[0], "org") == 0) {
       assert(num_grps == 2);
       uint16_t val;
-      if (parse_value(grps[1], ADR_ABS, &val)) {
+      if (parse_value(grps[1], ADR_ABS, &val, sym)) {
         printf("jumped to $0x%04X\n", val);
         cpu->pc = val;
       }
@@ -253,7 +275,7 @@ void parse_line(const char *grps[], size_t num_grps,
         for (i = 0; i < ADR_MAX; ++i) {
           uint16_t val;
           int bytes;
-          if ((modes & (1 << i)) && (bytes = parse_value(grps[instr_start + 1], i, &val))) {
+          if ((modes & (1 << i)) && (bytes = parse_value(grps[instr_start + 1], i, &val, sym))) {
             printf("%s with %s means mode %zu\n", grps[instr_start], grps[instr_start + 1], i);
             uint8_t op = instr_named(grps[instr_start], i);
             assert(op);
