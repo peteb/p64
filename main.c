@@ -218,7 +218,7 @@ void parse_line(const char *grps[], size_t num_grps,
       sym_name[(sizeof sym_name) - 1] = '\0';
       
       size_t len = strlen(sym_name);
-      if (sym_name[len - 1] == ':') {
+      if (len > 0 && sym_name[len - 1] == ':') {
         sym_name[len - 1] = '\0';
         flags |= SYM_GLOBAL;
       }
