@@ -94,7 +94,7 @@ int main() {
 
   parse_asm(code, &cpu, &object);
   print_state(&cpu);
-  print_instr(cpu.mem + 0x100, 40, 0x100);
+  print_instr(cpu.mem, 40, 0x100);
   /*  repl(); */
   return 0;
 }
