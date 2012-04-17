@@ -5,8 +5,8 @@
 
 void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
   /* prints the instructions at pc, up to len bytes */
-  uint16_t end = len;
-  uint16_t pc = 0;
+  uint16_t end = len + start_ofs;
+  uint16_t pc = start_ofs;
   
   while (pc < end) {
     uint16_t instr_pc = pc;
@@ -17,7 +17,7 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
     size_t num_bytes = 1;
     const char *extra = "";
     
-    sprintf(data, ".%04X  ", instr_pc + start_ofs);
+    sprintf(data, ".%04X  ", instr_pc);
 
     if (opcode->cfun) {
       uint16_t val;
