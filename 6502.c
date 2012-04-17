@@ -566,7 +566,7 @@ void print_state(cpu_state_t *state) {
 
   size_t i;
   for (i = 0; i < 0x400; ) {
-    printf("%04ZX: ", i);
+    printf("%04zX: ", i);
     size_t a = i + 0x20;
     for (; i < a; ++i)
       printf("%02X ", state->mem[i]);

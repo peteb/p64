@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <ctype.h>
 
 #define SYM_GLOBAL         0x01
 #define ASM_NO_LINK_ERROR  0x01
@@ -19,7 +20,7 @@ typedef struct symtab {
   size_t num_symbols;
 } symtab_t;
 
-void clear_symtab(struct symtab *syms) {
+static void sym_clear(struct symtab *syms) {
   size_t i;
   for (i = 0; i < syms->num_symbols; ++i)
     free(syms->symbols[i].id);
@@ -27,7 +28,7 @@ void clear_symtab(struct symtab *syms) {
   syms->num_symbols = 0;
 }
 
-sym_def_t *sym_lookup(struct symtab *syms, const char *name) {
+static sym_def_t *sym_lookup(struct symtab *syms, const char *name) {
   size_t i;
   for (i = 0; i < syms->num_symbols; ++i) {
     if (strcmp(syms->symbols[i].id, name) == 0)
@@ -40,10 +41,10 @@ sym_def_t *sym_lookup(struct symtab *syms, const char *name) {
 void parse_asm(const char *, struct cpu_state *, struct symtab *);
 
 void repl() {
-  static cpu_state_t cpu;
+  static cpu_state_t cpu = {.ps = 0x20, .sp = 0xFF};
   static symtab_t symbols;
-
   char line[256];
+
   while (1) {
     printf(".%04X: ", cpu.pc);
     if (fgets(line, 256, stdin)) {
@@ -54,19 +55,20 @@ void repl() {
       break;
     }
   }
+
   print_state(&cpu);
   print_instr(cpu.mem + 0x100, 40, 0x100);
-  clear_symtab(&symbols);
+  sym_clear(&symbols);
 }
 
 int main() {
   static cpu_state_t cpu = {
     .ps = 0x20,
     .sp = 0xFF,
-    .mem = {0xA9, 0xFA, 0x69, 0x06, 0x08, 0x18, 0x28, 0xBA,  /* 8 */
+    .mem = {0xA9, 0xFA, 0x69, 0x06, 0x08, 0x18, 0x28, 0xBA,  /*  8 */
             0x8E, 0x13, 0x37, 0xEA, 0xEA, 0x20, 0x00, 0x18,  /* 16 */
-            0xA2, 0x02, 0xB4, 0x01,    0,    0,    0,    0,     /* 24 */
-            0x18, 0xA9, 0x02, 0x09, 0x08, 0x60,    0,    0,    0}
+            0xA2, 0x02, 0xB4, 0x01,    0,    0,    0,    0,  /* 24 */
+            0x18, 0xA9, 0x02, 0x09, 0x08, 0x60,    0,    0}
   };
 
   /* run_machine(&cpu); */
@@ -80,7 +82,7 @@ int main() {
     "     php\n"
     "     jmp main\n"
     "main lda #$FA            ; start of the stuff\n"
-    "     adc #$06\n"
+    "     adc $137\n"
     "     php\n"
     "     clc                 ; clear carry\n"
     "     plp\n"
@@ -97,23 +99,10 @@ int main() {
   return 0;
 }
 
-int isws(char c) {
-  return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
-}
+static int isnotnl(int c) {return (c != '\n');}
+static int ischars(int c) {return (!isspace(c) && c != ';');}
 
-int isnum(char c) {
-  return (c >= '0' && c <= '9');
-}
-
-int isnotnl(char c) {
-  return (c != '\n');
-}
-
-int ischars(char c) {
-  return (!isws(c) && c != ';');
-}
-
-void eat_while(const char **p, int (*pred)(char)) {
+static void eat_while(const char **p, int (*pred)(int)) {
   const char *pos = *p;
   while (*pos) {
     if (pred(*pos))
@@ -125,63 +114,77 @@ void eat_while(const char **p, int (*pred)(char)) {
   *p = pos;
 }
 
-int parse_value(const char *text, uint8_t mode,
-                uint16_t *res, struct symtab *symbols) {
+static int parse_value(const char *text, uint8_t mode,
+                       uint16_t *res, struct symtab *symbols) {
   long val;
   char *end = 0;
 
   switch (mode) {
-  case ADR_ABS:  /* 12342, $123F */
+  case ADR_IMP:
+    if (text)
+      return -1; /* a value was given, but we don't want any! */
+    return 0;
+
+  case ADR_ABS:  /* 12342, $123F, LABEL */
     if (text[0] == '$')
       val = strtol(text + 1, &end, 16);
     else
       val = strtol(text, &end, 10);
 
-    if (end == text) {
-      /* maybe it's a label, let's try it */
-      while (*end) {
-        if (!isalpha(*end))
-          return 0;
-        end++;
-      }
-      /* note: we've ruined 'end' here */
-      
-      sym_def_t *symbol = sym_lookup(symbols, text);
-      if (!symbol) {
-        fprintf(stderr,
-                "error: symbol '%s' not defined\n", text);
-        return 0;
-      }
-      *res = symbol->address;
-      return 1;
+    if (end != (text[0] == '$' ? text + 1 : text)) {
+      *res = val;
+      return 2;
     }
-    
-    *res = val;
-    return 2;
+
+    /* maybe it's a label, let's try it */
+
+    if (text[0] == '$')
+      return -1;
+
+    while (*end) {
+      if (!isalpha(*end))
+        return -1;
+      end++;
+    }
+    /* note: we've ruined 'end' here */
+
+    sym_def_t *symbol = sym_lookup(symbols, text);
+    if (!symbol) {
+      fprintf(stderr,
+              "error: symbol '%s' not defined\n", text);
+      return -1;
+    }
+    *res = symbol->address;
+    return 2;    
 
   case ADR_IMM:  /* #255, #$FA */
     if (text[0] != '#')
-      return 0;
+      return -1;
 
     if (text[1] == '$')
       val = strtol(text + 2, &end, 16);
     else
       val = strtol(text + 1, &end, 10);
-    if (end == text)
-      return 0;
+
+    if (end == (text[1] == '$' ? text + 2 : text + 1))
+      return -1;
+
+    if (val > 0xFF)
+      return -1;
+
     *res = val;
     return 1;
 
     /* TODO: the rest of the modes */
-    
+
   }
 
-  return 0;
+  return -1;
 }
 
 
-void parse_line(const char *grps[], size_t num_grps,
-                struct cpu_state *cpu, struct symtab *sym) {
+static void parse_line(const char *grps[], size_t num_grps,
+                       struct cpu_state *cpu, struct symtab *sym) {
   /* 1: 3 label instr/keyword param*/
   /* 2: 2 label instr/keyword*/
   /* 3: 2 instr/keyword param */
@@ -200,7 +203,7 @@ void parse_line(const char *grps[], size_t num_grps,
     if (strcmp(grps[0], "org") == 0) {
       assert(num_grps == 2);
       uint16_t val;
-      if (parse_value(grps[1], ADR_ABS, &val, sym)) {
+      if (parse_value(grps[1], ADR_ABS, &val, sym) != -1) {
         printf("jumped to $0x%04X\n", val);
         cpu->pc = val;
       }
@@ -239,75 +242,49 @@ void parse_line(const char *grps[], size_t num_grps,
       if (num_grps > 1) {
         instr_start = 1;
         modes = instr_modes(grps[1]);
+        grps++; /* grps will now point to the instruction */
       }
     }
   }
 
   if (modes) {
     /* there's a valid instruction in there */
-    if (modes == (1 << ADR_IMP) && (num_grps - instr_start) != 1) {
-      fprintf(stderr,
-              "error: instruction '%s' doesn't accept parameters (%zu were given)\n",
-              grps[instr_start], num_grps - instr_start - 1);
-      return;
-    }
-    else {
-      /* try to parse instr_start+1 as any of the addressing modes in modes */
-      if (!(modes & (1 << ADR_IMP)) && num_grps - instr_start == 1) {
-        fprintf(stderr,
-                "error: instruction '%s' takes parameters, none were given\n",
-                grps[instr_start]);
-        return;
-      }
 
-      /* TODO: all these instr_modes and instr_named calls are doing more work
-       * than necessary. */
+    /* TODO: all these instr_modes and instr_named calls are doing more work
+     * than necessary. */
 
-      /* TODO: the special handling of ADR_IMP here is ugly. should be moved
-         into parse_value instead, so that it takes a list. */
+    size_t i;
+    for (i = 0; i < ADR_MAX; ++i) {
+      uint16_t val;
+      int bytes;
+      const char *value = (num_grps - instr_start != 1 ?
+                           grps[1] : NULL);
+      if (modes & (1 << i) &&
+          (bytes = parse_value(value, i, &val, sym)) != -1) {
+        printf("%s with %s means mode %zu\n",
+               grps[0], grps[1], i);
 
-      if (modes & (1 << ADR_IMP)) {
-        printf("one-line %s\n", grps[instr_start]);
-        uint8_t op = instr_named(grps[instr_start], ADR_IMP);
+        uint8_t op = instr_named(grps[0], i);
         assert(op);
         cpu->mem[cpu->pc++] = op;
-      }
-      else {
-        size_t i;
-        for (i = 0; i < ADR_MAX; ++i) {
-          uint16_t val;
-          int bytes;
-          if ((modes & (1 << i)) && (bytes = parse_value(grps[instr_start + 1], i, &val, sym))) {
-            printf("%s with %s means mode %zu\n", grps[instr_start], grps[instr_start + 1], i);
-            uint8_t op = instr_named(grps[instr_start], i);
-            assert(op);
-            cpu->mem[cpu->pc++] = op;
-            if (bytes == 1) {
-              cpu->mem[cpu->pc++] = val;
-            }
-            else if (bytes == 2) {
-              cpu->mem[cpu->pc++] = val >> 8;
-              cpu->mem[cpu->pc++] = val;
-            }
-            else {
-              assert(!"some strange amount of bytes");
-            }
 
-
-            /* TODO: skriv ner värdet i minnet också. det kan ju vara både
-               en byte och två bytes */
-            break;
-          }
+        switch (bytes) {
+        case 2:  cpu->mem[cpu->pc++] = val >> 8;
+        case 1:  cpu->mem[cpu->pc++] = val;
+        case 0:  break;
+        default: assert(!"some strange amount of bytes");            
         }
 
-        if (i == ADR_MAX) {
-          fprintf(stderr,
-                  "error: the value given for '%s', %s, doesn't really work for me\n",
-                  grps[instr_start],
-                  grps[instr_start + 1]);
-          return;
-        }
+        break;
       }
+    }
+
+    if (i == ADR_MAX) {
+      fprintf(stderr,
+              "error: the value given for '%s', %s, doesn't really work for me\n",
+              grps[0],
+              grps[1]);
+      return;
     }
   }
 
@@ -318,11 +295,11 @@ void parse_asm(const char *text, struct cpu_state *cpu, struct symtab *sym) {
   const char *pos = text;
   char value[64] = {0};
   char *val_ptr = value;
-  const char *val_grps[8] = {0};
+  const char *val_grps[8];
   size_t num_grps = 0;
-  
+
   while (*pos) {
-    eat_while(&pos, isws);
+    eat_while(&pos, isspace);
     const char *chars_start = pos;
     eat_while(&pos, ischars);
     size_t diff = pos - chars_start;

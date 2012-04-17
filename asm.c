@@ -31,7 +31,7 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
         break;
 
       case ADR_ABX:   extra = ",X";
-      case ADR_ABY:   if (*extra == '\0') extra = ",Y";
+      case ADR_ABY:   if (!*extra) extra = ",Y";
       case ADR_ABS:
         num_bytes = 3;
         hi = mem[pc++];
@@ -40,23 +40,18 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
         break;
 
       case ADR_ZPX:   extra = ",X";
-      case ADR_ZPY:   if (*extra == '\0') extra = ",Y";
+      case ADR_ZPY:   if (!*extra) extra = ",Y";
       case ADR_ZP:
         val = mem[pc++];
         num_bytes = 2;
         sprintf(instr, "%s $%02X%s", opcode->name, val, extra);
         break;
 
-      case ADR_IZX:
+      case ADR_IZX:   extra = ",X)";
+      case ADR_IZY:   if (!*extra) extra = "),Y";
         val = mem[pc++];
         num_bytes = 2;
-        sprintf(instr, "%s ($%02X, X)", opcode->name, val);
-        break;
-
-      case ADR_IZY:
-        val = mem[pc++];
-        num_bytes = 2;
-        sprintf(instr, "%s ($%02X), Y", opcode->name, val);
+        sprintf(instr, "%s ($%02X%s", opcode->name, val, extra);
         break;
 
       case ADR_IND:
