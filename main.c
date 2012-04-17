@@ -294,8 +294,8 @@ void parse_line(const char *grps[], size_t num_grps,
             }
 
 
-            /* TODO: skriv ner värdet i minnet också. det kan ju vara både
-               en byte och två bytes */
+            /* TODO: skriv ner vï¿½rdet i minnet ocksï¿½. det kan ju vara bï¿½de
+               en byte och tvï¿½ bytes */
             break;
           }
         }
@@ -318,7 +318,7 @@ void parse_asm(const char *text, struct cpu_state *cpu, struct symtab *sym) {
   const char *pos = text;
   char value[64] = {0};
   char *val_ptr = value;
-  const char *val_grps[8] = {0};
+  const char *val_grps[8];
   size_t num_grps = 0;
   
   while (*pos) {
