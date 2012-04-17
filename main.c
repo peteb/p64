@@ -57,7 +57,7 @@ void repl() {
   }
 
   print_state(&cpu);
-  print_instr(cpu.mem + 0x100, 40, 0x100);
+  print_instr(cpu.mem, 40, 0x100);
   sym_clear(&symbols);
 }
 
