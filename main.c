@@ -270,7 +270,7 @@ static void parse_line(const char *grps[], size_t num_grps,
 
         switch (bytes) {
         case 2:  cpu->mem[cpu->pc++] = val >> 8;
-        case 1:  cpu->mem[cpu->pc++] = val;
+        case 1:  cpu->mem[cpu->pc++] = val & 0xFF;
         case 0:  break;
         default: assert(!"some strange amount of bytes");            
         }
