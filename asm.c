@@ -104,18 +104,11 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
 }
 
 static int isnotnl(int c) {return (c != '\n');}
-static int ischars(int c) {return (!isspace(c) && c != ';');}
+static int ischars(int c) {return (!isspace(c) && c != ';' && c != '\n');}
 
 static void eat_while(const char **p, int (*pred)(int)) {
   const char *pos = *p;
-  while (*pos) {
-    if (pred(*pos))
-      pos++;
-    else
-      break;
-  }
-
-  *p = pos;
+  while (*pos && (*p = pos, pred(*pos++)));
 }
 
 static int parse_value(const char *text, uint8_t mode,
@@ -200,8 +193,7 @@ static void parse_line(const char *grps[], size_t num_grps,
   uint16_t modes = 0;
   size_t instr_start = 0;
 
-  if (num_grps > 0)
-    modes = instr_modes(grps[0]);
+  modes = instr_modes(grps[0]);
 
   if (modes == 0) {
     /* first group isn't a valid instruction, maybe it's a keyword */
@@ -329,11 +321,12 @@ void parse_asm(const char *text, struct cpu_state *cpu, struct symtab *sym) {
     }
 
     if (*pos == '\n') {
-      parse_line(val_grps, num_grps, cpu, sym);
+      if (num_grps > 0)
+        parse_line(val_grps, num_grps, cpu, sym);
+      
       num_grps = 0;
       val_ptr = value;
+      pos++;
     }
-
-
   }
 }
