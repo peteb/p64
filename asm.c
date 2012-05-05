@@ -120,13 +120,15 @@ static void eat_while(const char **p, int (*pred)(int)) {
 
 static int parse_value(const char *text, uint8_t mode,
                        uint16_t *res, struct symtab *symbols) {
+  /* if text == NULL, there is no value */
+  if (mode != ADR_IMP && !text)
+    return -1;
+  
   long val;
   char *end = 0;
 
   switch (mode) {
   case ADR_IMP:
-    if (text)
-      return -1; /* a value was given, but we don't want any! */
     return 0;
 
   case ADR_ABS:  /* 12342, $123F, LABEL */
@@ -218,7 +220,7 @@ static void parse_line(const char *grps[], size_t num_grps,
       }
     }
     else {
-      assert(sym->num_symbols < 100);
+      assert(sym->num_symbols < 100 && "can't define any more symbols");
       uint8_t flags = 0;
       char sym_name[64] = {0};
       strncpy(sym_name, grps[0], sizeof sym_name - 1);

@@ -2,7 +2,7 @@
 #define P64_ASM_H
 
 /*
- * An assembler & disassembler for 6502 asm.
+ * A non-optimizing assembler & disassembler for 6502 asm.
  * Perhaps it would be best to move it into 6502.c/.h.
  */
 

@@ -13,7 +13,7 @@ void repl() {
 
   while (1) {
     printf(".%04X: ", cpu.pc);
-    if (fgets(line, 256, stdin)) {
+    if (fgets(line, sizeof line, stdin)) {
       parse_asm(line, &cpu, &symbols);
       /* how about eval */
     }
@@ -58,6 +58,8 @@ int main() {
 
   static symtab_t object;
 
+  /* TODO: replayability. record instructions, go back in time, etc.  */
+  
   parse_asm(code, &cpu, &object);
   print_state(&cpu);
   print_instr(cpu.mem, 40, 0x100);
