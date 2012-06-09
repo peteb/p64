@@ -181,6 +181,16 @@ static opc_descr_t opcodes[0xFF] = {
   [0xF0] = {ADR_REL, op_br, "beq"}
 };
 
+static void cpu_update_ps(cpu_state_t *cpu, uint16_t value, uint8_t bits) {
+  uint8_t new_ps = 0;
+  
+  if (value > 0xFF) new_ps |= (PS_C|PS_V);
+  if (value & 0x80) new_ps |= PS_N;
+  if (value == 0) new_ps |= PS_Z;
+  
+  cpu->ps = (cpu->ps & ~bits) | (new_ps & bits);
+}
+
 void run_machine(cpu_state_t *cpu) {
   uint8_t opcode;
   while ((opcode = cpu->mem[cpu->pc])) {
@@ -261,12 +271,7 @@ void op_ld(cpu_state_t *cpu, uint8_t mode) {
   assert(reg);
 
   *reg = value;
-  if (value & 0x80)
-    cpu->ps |= PS_N;
-
-  cpu->ps = (value == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, value, PS_N|PS_Z);
 }
 
 void op_adc(cpu_state_t *cpu, uint8_t mode) {
@@ -274,17 +279,7 @@ void op_adc(cpu_state_t *cpu, uint8_t mode) {
   uint16_t adr = adr_fetch(mode, cpu);
   uint16_t result = cpu->a + cpu->mem[adr];
   cpu->a = (uint8_t)(result & 0xFF);
-
-  if (result > 0xFF)
-    cpu->ps |= (PS_C|PS_V);
-
-  if (cpu->a & 0x80)
-    cpu->ps |= PS_N;
-
-  if (cpu->a == 0)
-    cpu->ps |= PS_Z;
-  else
-    cpu->ps &= ~PS_Z;
+  cpu_update_ps(cpu, result, PS_C|PS_V|PS_N|PS_Z);
 }
 
 void op_st(cpu_state_t *cpu, uint8_t mode) {
@@ -327,11 +322,7 @@ void op_trans(cpu_state_t *cpu, uint8_t mode) {
   }
 
   *dest = *source;
-  if (*dest & 0x80)
-    cpu->ps |= PS_N;
-  cpu->ps = (*dest == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, *source, PS_N|PS_Z);
 }
 
 void op_push(cpu_state_t *cpu, uint8_t mode) {
@@ -356,14 +347,8 @@ void op_pull(cpu_state_t *cpu, uint8_t mode) {
   }
 
   *dest = POP8(cpu);
-  if (code == 0x68) {
-    if (*dest & 0x80)
-      cpu->ps |= PS_N;
-    cpu->ps = (*dest == 0 ?
-               cpu->ps | PS_Z :
-               cpu->ps & ~PS_Z);
-  }
-
+  if (code == 0x68)
+    cpu_update_ps(cpu, *dest, PS_N|PS_Z);
 }
 
 void op_tog_i(cpu_state_t *cpu, uint8_t mode) {
@@ -423,39 +408,21 @@ void op_ora(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
   cpu->a |= cpu->mem[adr];
-
-  if (cpu->a & 0x80)
-    cpu->ps |= PS_N;
-
-  cpu->ps = (cpu->a == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, cpu->a, PS_N|PS_Z);
 }
 
 void op_and(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
   cpu->a &= cpu->mem[adr];
-
-  if (cpu->a & 0x80)
-    cpu->ps |= PS_N;
-
-  cpu->ps = (cpu->a == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, cpu->a, PS_N|PS_Z);
 }
 
 void op_eor(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
   cpu->a ^= cpu->mem[adr];
-
-  if (cpu->a & 0x80)
-    cpu->ps |= PS_N;
-
-  cpu->ps = (cpu->a == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, cpu->a, PS_N|PS_Z);
 }
 
 void op_sbc(cpu_state_t *cpu, uint8_t mode) {
@@ -463,34 +430,20 @@ void op_sbc(cpu_state_t *cpu, uint8_t mode) {
   uint16_t adr = adr_fetch(mode, cpu);
   int16_t res = cpu->a - cpu->mem[adr] - !(cpu->ps & PS_C);
   cpu->a = (uint8_t)res;
-
-  if (cpu->a & 0x80)
-    cpu->ps |= PS_N;
-
+  cpu_update_ps(cpu, res, PS_N|PS_Z);
   cpu->ps = (res >= 0 ?
              cpu->ps | PS_C :
              cpu->ps & ~PS_C);
-
-  cpu->ps = (cpu->a == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
 }
 
 void op_cmp(cpu_state_t *cpu, uint8_t mode) {
   cpu->pc++;
   uint16_t adr = adr_fetch(mode, cpu);
   int16_t res = cpu->a - cpu->mem[adr] - !(cpu->ps & PS_C);
-
-  if (res & 0x80)
-    cpu->ps |= PS_N;
-
+  cpu_update_ps(cpu, res, PS_N|PS_Z);
   cpu->ps = (res >= 0 ?
              cpu->ps | PS_C :
              cpu->ps & ~PS_C);
-
-  cpu->ps = (res == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
 }
 
 void op_dec(cpu_state_t *cpu, uint8_t mode) {
@@ -503,12 +456,7 @@ void op_dec(cpu_state_t *cpu, uint8_t mode) {
   default: res = --cpu->mem[adr_fetch(mode, cpu)];
   }
 
-  if (res & 0x80)
-    cpu->ps |= PS_N;
-
-  cpu->ps = (res == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, res, PS_N|PS_Z);
 }
 
 void op_inc(cpu_state_t *cpu, uint8_t mode) {
@@ -521,12 +469,7 @@ void op_inc(cpu_state_t *cpu, uint8_t mode) {
   default: res = ++cpu->mem[adr_fetch(mode, cpu)];
   }
 
-  if (res & 0x80)
-    cpu->ps |= PS_N;
-
-  cpu->ps = (res == 0 ?
-             cpu->ps | PS_Z :
-             cpu->ps & ~PS_Z);
+  cpu_update_ps(cpu, res, PS_N|PS_Z);
 }
 
 void op_br(cpu_state_t *cpu, uint8_t mode) {
