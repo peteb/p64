@@ -24,8 +24,9 @@ static sym_def_t *sym_lookup(struct symtab *syms, const char *name) {
   return NULL;
 }
 
+
+/* prints the instructions at start_ofs, up to len bytes */
 void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
-  /* prints the instructions at pc, up to len bytes */
   uint16_t end = len + start_ofs;
   uint16_t pc = start_ofs;
   
@@ -34,61 +35,37 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
     uint8_t code = mem[pc++];
     opc_descr_t *opcode = instr_descr(code);
     char instr[64] = {0};
-    char data[64] = {0};
+    char prefix[64] = {0};
     size_t num_bytes = 1;
-    const char *extra = "";
+    const char *fmt = "";
     
-    sprintf(data, ".%04X  ", instr_pc);
+    sprintf(prefix, ".%04X  ", instr_pc);
 
     if (opcode->cfun) {
-      uint16_t val;
-      uint8_t hi;
-
       switch (opcode->addr_m) {
-      case ADR_IMM:
+      /* 3 byte instructions */
+      case ADR_ABX:   fmt =            "%s $%04X,X";
+      case ADR_ABY:   if (!*fmt) fmt = "%s $%04X,Y";
+      case ADR_ABS:   if (!*fmt) fmt = "%s $%04X";
+      case ADR_IND:   if (!*fmt) fmt = "%s ($%04X)";
+      case ADR_REL:   if (!*fmt) fmt = "%s $%04X,PC";
+        num_bytes = 3;
+        uint8_t hi = mem[pc++];
+        uint16_t val = (uint16_t)hi << 8 | mem[pc++];
+        sprintf(instr, fmt, opcode->name, val);
+        break;
+
+      /* 2 byte instructions */
+      case ADR_IMM:   fmt =            "%s #$%02X";
+      case ADR_ZPX:   if (!*fmt) fmt = "%s $%02X,X";
+      case ADR_ZPY:   if (!*fmt) fmt = "%s $%02X,Y";
+      case ADR_ZP:    if (!*fmt) fmt = "%s $%02X";
+      case ADR_IZX:   if (!*fmt) fmt = "%s ($%02X,X)";
+      case ADR_IZY:   if (!*fmt) fmt = "%s ($%02X),Y";
         val = mem[pc++];
         num_bytes = 2;
-        sprintf(instr, "%s #$%02X", opcode->name, val);
+        sprintf(instr, fmt, opcode->name, val);
         break;
-
-      case ADR_ABX:   extra = ",X";
-      case ADR_ABY:   if (!*extra) extra = ",Y";
-      case ADR_ABS:
-        num_bytes = 3;
-        hi = mem[pc++];
-        val = (uint16_t)hi << 8 | mem[pc++];
-        sprintf(instr, "%s $%04X%s", opcode->name, val, extra);
-        break;
-
-      case ADR_ZPX:   extra = ",X";
-      case ADR_ZPY:   if (!*extra) extra = ",Y";
-      case ADR_ZP:
-        val = mem[pc++];
-        num_bytes = 2;
-        sprintf(instr, "%s $%02X%s", opcode->name, val, extra);
-        break;
-
-      case ADR_IZX:   extra = ",X)";
-      case ADR_IZY:   if (!*extra) extra = "),Y";
-        val = mem[pc++];
-        num_bytes = 2;
-        sprintf(instr, "%s ($%02X%s", opcode->name, val, extra);
-        break;
-
-      case ADR_IND:
-        num_bytes = 3;
-        hi = mem[pc++];
-        val = (uint16_t)hi << 8 | mem[pc++];
-        sprintf(instr, "%s ($%04X)", opcode->name, val);
-        break;
-
-      case ADR_REL:
-        num_bytes = 3;
-        hi = mem[pc++];
-        val = (uint16_t)hi << 8 | mem[pc++];
-        sprintf(instr, "%s $%04X,PC", opcode->name, val);
-        break;
-
         
       default:
         strcpy(instr, opcode->name);
@@ -96,10 +73,10 @@ void print_instr(uint8_t *mem, uint16_t len, uint16_t start_ofs) {
     }
 
     while (num_bytes--) {
-      sprintf(data + strlen(data), "%02X ", mem[instr_pc++]);
+      sprintf(prefix + strlen(prefix), "%02X ", mem[instr_pc++]);
     }
 
-    printf("%-16s %s\n", data, instr);
+    printf("%-16s %s\n", prefix, instr);
   }
 }
 
